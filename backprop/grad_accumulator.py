@@ -3,6 +3,12 @@ from typing import Optional, List, Any
 
 from utils.metrics import Window, average_losses
 
+"""
+TODO:
+    - Add the ability to transform the gradient with a list of input functions
+    - Implement multiple methods for gradient accumulation other than just the mean
+"""
+
 
 class GradAccumulator:
     def __init__(
@@ -11,6 +17,7 @@ class GradAccumulator:
         requires_grad: Optional[bool] = True,
         start_data: Optional[list] = None,
         dtype=T.Tensor,
+        torch_dtype=T.float16,  # TODO: pass to torch
         operation=average_losses,
     ):
         if start_data is None:
@@ -22,6 +29,7 @@ class GradAccumulator:
         self.dtype = dtype
         self.operation = operation
         self.requires_grad = requires_grad
+        self.torch_dtype = torch_dtype
 
     def __repr__(self):
         try:
