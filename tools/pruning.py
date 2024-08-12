@@ -13,6 +13,7 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         torch_dtype=T.float16,
         device: Optional[T.DeviceObjType] = T.device("cuda:0"),
     ):
+        super().__init__()
         self.modules = list(model.named_modules())[1:]
         self.skip_layers = skip_layers
         self.torch_dtype = torch_dtype
@@ -34,7 +35,7 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         ]
 
     # functions
-    def __check_module_instance(self, module: list[nn.Module] | nn.Module):
+    def _check_module_instance(self, module: list[nn.Module] | nn.Module):
 
         def module_instance_check(module: nn.Module, allowed) -> bool:
             for instance in allowed:
@@ -66,10 +67,9 @@ class DistinctivenessPruning(IterativeDragonPruner):
     def __init__(
         self,
         tolerance: Optional[Tuple[float, float]],
-        *args,
         **kwargs,
     ):
-        super(IterativeDragonPruner, self).__init__(*args)
+        super().__init__(**kwargs)
         self.current_module = self.modules[0]
 
         # init attributes
@@ -86,18 +86,16 @@ class DistinctivenessPruning(IterativeDragonPruner):
         """
         Calculate angle (degrees) from between weights vectors W_i, W_j
         Args:
+        ---
           - param1 (T.tensor) : Weight vector 1
           - param2 (T.tensor) : Weight vector 2
           - *args (dict[str, Any]) : Named arguments for Torch.dot
           - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
         """
         numerator = T.dot(param1, param2, *args)
-        denominator = T.norm(param1, dtype=self.torch_dtype, **kwargs) * T.norm(
-            param2, dtype=self.torch_dtype, **kwargs
-        )
+        denominator = T.norm(param1, **kwargs) * T.norm(param2, **kwargs)
         result = T.rad2deg(T.acos(numerator / denominator))
-        assert result.device == self.device
-        return result
+        return result.to(self.device)
 
     def merge_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
         raise NotImplementedError
@@ -125,10 +123,10 @@ class DistinctivenessPruning(IterativeDragonPruner):
             else:
                 self.current_module = name
                 next_name, next_module = self._get_next_module(name)
-                self.__check_module_instance([module, next_module])
+                self._check_module_instance([module, next_module])
                 return (
-                    name,
-                    next_name,
+                    {name: module},
+                    {next_name: next_module},
                 )  # TODO: Change this to include the modules as well.
 
     def __call__(self, model: nn.Module, iteration: int, *args, **kwargs):
@@ -140,4 +138,4 @@ class DistinctivenessPruning(IterativeDragonPruner):
             else:
                 self.current_module = name
                 next_module = self._get_next_module(model, name)
-                return name, next_module
+                print(name, next_module)
