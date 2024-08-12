@@ -17,7 +17,7 @@ class TestDistinctivenessPrune:
         assert list(m1.keys())[0] == "lstm" and list(m2.keys())[0] == "fc2"
 
     def test_angle_calc_ts(self):
-        # test angle calc
+        # test angle calc (result comparison was calculated by hand)
         model_config = LSTMTSConfig()
         model = LSTMTS(model_config)
 

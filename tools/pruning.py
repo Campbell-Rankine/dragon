@@ -14,7 +14,9 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         device: Optional[T.DeviceObjType] = T.device("cuda:0"),
     ):
         super().__init__()
-        self.modules = list(model.named_modules())[1:]
+        self.modules = list(model.named_modules())[
+            1:
+        ]  # first module is the base class with no name
         self.skip_layers = skip_layers
         self.torch_dtype = torch_dtype
         self.device = device
@@ -52,57 +54,6 @@ class IterativeDragonPruner(prune.BasePruningMethod):
     def compute_mask(self):
         raise NotImplementedError
 
-
-# class BaseDragonPruner: (for applying some kind of default mask)
-
-
-class DistinctivenessPruning(IterativeDragonPruner):
-    """
-    TODO:
-        - Implement model parameter init function for merge/delte
-        - Double check the rest of the abstract methods
-        - test on a transformer, CNN and LSTM
-    """
-
-    def __init__(
-        self,
-        tolerance: Optional[Tuple[float, float]],
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.current_module = self.modules[0]
-
-        # init attributes
-        self.min_angle = tolerance[0]
-        self.max_angle = tolerance[1]
-
-    def update_angle_params(self, val: float, apply_to_min: Optional[bool] = True):
-        if apply_to_min:
-            self.min_angle = val
-        else:
-            self.max_angle = val
-
-    def get_angle(self, param1: T.tensor, param2: T.tensor, *args, **kwargs) -> float:
-        """
-        Calculate angle (degrees) from between weights vectors W_i, W_j
-        Args:
-        ---
-          - param1 (T.tensor) : Weight vector 1
-          - param2 (T.tensor) : Weight vector 2
-          - *args (dict[str, Any]) : Named arguments for Torch.dot
-          - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
-        """
-        numerator = T.dot(param1, param2, *args)
-        denominator = T.norm(param1, **kwargs) * T.norm(param2, **kwargs)
-        result = T.rad2deg(T.acos(numerator / denominator))
-        return result.to(self.device)
-
-    def merge_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
-        raise NotImplementedError
-
-    def delete_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
-        raise NotImplementedError
-
     def _get_next_module(self, module_name: str) -> str:
         return_flag = False
         for name, module in self.modules:
@@ -128,6 +79,63 @@ class DistinctivenessPruning(IterativeDragonPruner):
                     {name: module},
                     {next_name: next_module},
                 )  # TODO: Change this to include the modules as well.
+
+    def prune_iterative_callable(self, model: nn.Module, function: callable):
+        # TODO: write function to iterate and move across all module parameters.
+        for name, module in model.named_modules():
+            if name in self.skip_layers:
+                continue
+
+
+# class BaseDragonPruner: (for applying some kind of default mask)
+
+"""
+TODO:
+    - Implement model parameter init function for merge/delte
+    - Double check the rest of the abstract methods
+    - test on a transformer, CNN and LSTM
+"""
+
+
+class DistinctivenessPruning(IterativeDragonPruner):
+    """
+    Prune a pytorch model of the types allowed by IterativeDragonPruner (extends IterativeDragonPruner). Prunes weights by either merging or deleting weight vectors that point the same / opposite directions.
+    If the angle between weight vectors W_i and W_j < 30 they are more or less contributing the same thing, so average the weights and combine them into a single vector W_r.
+    If the angle between weight vectors W_i and W_j > 150 they are more or less cancelling eachother out. So delete both.
+    """
+
+    def __init__(
+        self,
+        tolerance: Optional[Tuple[float, float]],
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.current_module = self.modules[0]
+
+        # init attributes
+        self.min_angle = tolerance[0]
+        self.max_angle = tolerance[1]
+
+    def get_angle(self, param1: T.tensor, param2: T.tensor, *args, **kwargs) -> float:
+        """
+        Calculate angle (degrees) from between weights vectors W_i, W_j
+        Args:
+        ---
+          - param1 (T.tensor) : Weight vector 1
+          - param2 (T.tensor) : Weight vector 2
+          - *args (dict[str, Any]) : Named arguments for Torch.dot
+          - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
+        """
+        numerator = T.dot(param1, param2, *args)
+        denominator = T.norm(param1, **kwargs) * T.norm(param2, **kwargs)
+        result = T.rad2deg(T.acos(numerator / denominator))
+        return result.to(self.device)
+
+    def merge_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
+        raise NotImplementedError
+
+    def delete_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
+        raise NotImplementedError
 
     def __call__(self, model: nn.Module, iteration: int, *args, **kwargs):
         for name, module in list(
