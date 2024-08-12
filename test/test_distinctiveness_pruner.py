@@ -8,7 +8,7 @@ from test_utils.test_models import LeNet, LSTMTS, LSTMTSConfig, device
 
 class TestDistinctivenessPrune:
     def test_get_modules(self):
-        # test angle calc
+        # test module retrieval
         model_config = LSTMTSConfig()
         model = LSTMTS(model_config)
 

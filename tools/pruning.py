@@ -4,32 +4,16 @@ import torch.nn.utils.prune as prune
 from typing import Optional, Tuple, Any, List
 
 
-class DistinctivenessPruning(prune.BasePruningMethod):
-    """
-    TODO:
-        - Implement model parameter init function for merge/delte
-        - Double check the rest of the abstract methods
-        - test on a transformer, CNN and LSTM
-    """
-
+# class IterativeDragonPruner: (for applying a pruning function iteratively, abstract class)
+class IterativeDragonPruner(prune.BasePruningMethod):
     def __init__(
         self,
         model: nn.Module,
-        tolerance: Optional[Tuple[float, float]],
         skip_layers: Optional[List[str]] = [],
         torch_dtype=T.float16,
         device: Optional[T.DeviceObjType] = T.device("cuda:0"),
     ):
-        # init module tracking
         self.modules = list(model.named_modules())[1:]
-        # self.modules.remove("")
-        self.current_module = self.modules[0]
-
-        # init attributes
-        self.min_angle = tolerance[0]
-        self.max_angle = tolerance[1]
-
-        # init torch related
         self.skip_layers = skip_layers
         self.torch_dtype = torch_dtype
         self.device = device
@@ -64,6 +48,34 @@ class DistinctivenessPruning(prune.BasePruningMethod):
         else:
             assert module_instance_check(module=mod, allowed=self.allowed_modules)
 
+    def compute_mask(self):
+        raise NotImplementedError
+
+
+# class BaseDragonPruner: (for applying some kind of default mask)
+
+
+class DistinctivenessPruning(IterativeDragonPruner):
+    """
+    TODO:
+        - Implement model parameter init function for merge/delte
+        - Double check the rest of the abstract methods
+        - test on a transformer, CNN and LSTM
+    """
+
+    def __init__(
+        self,
+        tolerance: Optional[Tuple[float, float]],
+        *args,
+        **kwargs,
+    ):
+        super(IterativeDragonPruner, self).__init__(*args)
+        self.current_module = self.modules[0]
+
+        # init attributes
+        self.min_angle = tolerance[0]
+        self.max_angle = tolerance[1]
+
     def update_angle_params(self, val: float, apply_to_min: Optional[bool] = True):
         if apply_to_min:
             self.min_angle = val
@@ -86,9 +98,6 @@ class DistinctivenessPruning(prune.BasePruningMethod):
         result = T.rad2deg(T.acos(numerator / denominator))
         assert result.device == self.device
         return result
-
-    def compute_mask(self):
-        raise NotImplementedError
 
     def merge_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
         raise NotImplementedError
