@@ -1,7 +1,8 @@
 import torch as T
 from typing import Optional, List, Any
 
-from utils.metrics import Window, average_losses
+from utils.metrics import average_losses
+from utils.torch_utils import Window
 
 """
 TODO:

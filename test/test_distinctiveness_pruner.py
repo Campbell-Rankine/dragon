@@ -13,8 +13,10 @@ class TestDistinctivenessPrune:
         model = LSTMTS(model_config)
 
         pruner = DistinctivenessPruning(tolerance=(30, 150), model=model, device=device)
-        m1, m2 = pruner.current_modules()
-        assert list(m1.keys())[0] == "lstm" and list(m2.keys())[0] == "fc2"
+        m = pruner.current_modules()
+        m1, _ = m["curr"]
+        m2, _ = m["next"]
+        assert m1 == "lstm" and m2 == "fc2"
 
     def test_angle_calc_ts(self):
         # test angle calc (result comparison was calculated by hand)
@@ -23,10 +25,10 @@ class TestDistinctivenessPrune:
 
         # get modules
         pruner = DistinctivenessPruning(tolerance=(30, 150), model=model, device=device)
-        m1, _ = pruner.current_modules()
+        m = pruner.current_modules()
+        m1, module1 = m["curr"]
 
         # retrieve weight vector from modules
-        [(_, module1)] = m1.items()
         param1 = next(module1.parameters())
         wv1 = param1[0]
         wv2 = param1[1]
