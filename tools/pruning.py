@@ -10,6 +10,7 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         self,
         model: nn.Module,
         skip_layers: Optional[List[str]] = [],
+        increment: Optional[int] = 1,
         torch_dtype=T.float16,
         device: Optional[T.DeviceObjType] = T.device("cuda:0"),
     ):
@@ -32,6 +33,7 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         # set up trackers for param generation
         self.idx = 0
         self.STOP_FLAG = False
+        self.inc = increment
 
     # attributes
     @property
@@ -73,8 +75,8 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         assert self.idx - 2 <= len(self.modules)
         try:
             # current
-            name, module = self.modules[self.idx + 1]
-            self.idx += 1
+            name, module = self.modules[self.idx + self.inc]
+            self.idx += self.inc
 
             # build data
             self.current_module = {
@@ -84,10 +86,49 @@ class IterativeDragonPruner(prune.BasePruningMethod):
             self.STOP_FLAG = True
 
     def _init_all_module_pairs(self):
-        # TODO: Use update_module_data to build out all of the curr, next pairs of modules
+        # TODO: Use update_module_data to build out all of the curr, next pairs of modules. Low priority as will be useful in runtime optimization
         raise NotImplementedError
 
-    def apply(
+    def apply_to(
+        self,
+        function: callable,
+        model: nn.Module,
+        name: str,
+        over_next_layer=False,
+        **kwargs,
+    ):
+        # TODO: write function to only apply callable to one specific named_param
+        result = {}
+        result[name] = []
+        # retrieve module params
+        with T.no_grad():
+            for idx, (name_, wi) in enumerate(model.named_parameters()):
+                if "weight" in name_ and name_ == name:
+                    new_weights = None
+                    wj = None
+                    next_name = None
+                    if (
+                        over_next_layer
+                    ):  # I reckon get rid of this functionality, you can simply
+                        try:
+                            next_name, wj = next(
+                                model.named_parameters()
+                            )  # TODO: Test 2 parameter pruning
+                        except Exception as e:
+                            print(e)
+                            break
+                        new_weights_i, new_weights_j = function(wi, wj, model, **kwargs)
+                        wi.copy_(new_weights_i)
+                        wj.copy_(new_weights_j)
+                        result[name].append({name_: new_weights_i})
+                        result[name].append({next_name: new_weights_j})
+                    else:
+                        new_weights = function(wi, model, **kwargs)
+                        wi.copy_(new_weights)
+                        result[name].append({name_: new_weights})
+        return result
+
+    def apply_fn(
         self,
         function: callable,
         model: nn.Module,
@@ -102,7 +143,6 @@ class IterativeDragonPruner(prune.BasePruningMethod):
             - model (nn.Module) : Model object
             - **kwargs (dict[str, Any]) : Named arguments for the pruning weight function
         """
-        # TODO: write function to iterate and move across all module parameters.
         result = {}
         while self.STOP_FLAG == False:
             # initial objects
@@ -121,34 +161,32 @@ class IterativeDragonPruner(prune.BasePruningMethod):
                     if "weight" in name_:
                         new_weights = None
                         wj = None
-                        if over_next_layer:
+                        next_name = None
+                        if (
+                            over_next_layer
+                        ):  # I reckon get rid of this functionality, you can simply
                             try:
-                                wj = next(module.named_parameters())
+                                next_name, wj = next(
+                                    module.named_parameters()
+                                )  # TODO: Test 2 parameter pruning
                             except Exception as e:
                                 print(e)
                                 break
-                            new_weights = function(wi, wj, model, **kwargs)
+                            new_weights_i, new_weights_j = function(
+                                wi, wj, model, **kwargs
+                            )
+                            wi.copy_(new_weights_i)
+                            wj.copy_(new_weights_j)
+                            result[name].append({name_: new_weights_i})
+                            result[name].append({next_name: new_weights_j})
                         else:
                             new_weights = function(wi, model, **kwargs)
-
-                        # add to result
-
-                        wi.copy_(new_weights)
-                        result[name].append({name_: new_weights})
+                            wi.copy_(new_weights)
+                            result[name].append({name_: new_weights})
 
             # update module
             self._next_module()
         return result
-
-
-# class BaseDragonPruner: (for applying some kind of default mask)
-
-"""
-TODO:
-    - Implement model parameter init function for merge/delte
-    - Double check the rest of the abstract methods
-    - test on a transformer, CNN and LSTM
-"""
 
 
 class DistinctivenessPruning(IterativeDragonPruner):
@@ -161,6 +199,7 @@ class DistinctivenessPruning(IterativeDragonPruner):
     def __init__(
         self,
         tolerance: Optional[Tuple[float, float]],
+        save_grad: Optional[bool] = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -168,27 +207,80 @@ class DistinctivenessPruning(IterativeDragonPruner):
         # init attributes
         self.min_angle = tolerance[0]
         self.max_angle = tolerance[1]
+        self._save_grad = save_grad
+
+        # storage
+        self.mask = []
+
+    def compute_mask(self, t, default_mask) -> T.Tensor:
+        """
+        Compute mask based on importance scores t
+        Args:
+            - t (T.tensor) : Importance scores
+            - default_mask (T.Tensor) : Pytorch base mask
+        Returns:
+            - mask (T.Tensor) : mask.shape == t.shape
+        """
+        raise NotImplementedError
 
     def get_angle(self, param1: T.tensor, param2: T.tensor, *args, **kwargs) -> float:
         """
         Calculate angle (degrees) from between weights vectors W_i, W_j
         Args:
         ---
-          - param1 (T.tensor) : Weight vector 1
-          - param2 (T.tensor) : Weight vector 2
-          - *args (dict[str, Any]) : Named arguments for Torch.dot
-          - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
+            - param1 (T.tensor) : Weight vector 1
+            - param2 (T.tensor) : Weight vector 2
+            - *args (dict[str, Any]) : Named arguments for Torch.dot
+            - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
+        Returns:
+            result (T.tensor) - resultant angle
         """
         numerator = T.dot(param1, param2, *args)
         denominator = T.norm(param1, **kwargs) * T.norm(param2, **kwargs)
         result = T.rad2deg(T.acos(numerator / denominator))
         return result.to(self.device)
 
-    def merge_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
-        raise NotImplementedError
+    def merge_neurons(
+        self,
+        param1: T.tensor,
+        param2: T.tensor,
+        weights: Optional[Tuple[float, float]] = (0.5, 0.5),
+        **kwargs,
+    ) -> Tuple[T.tensor, T.tensor]:
+        """
+        Modify gradients for param1 := 1/2 (param1+param2). Must return averaged weights, T.zeros_like(param2) to comply with IterativeDragonPruner
+        Args:
+        ---
+            - param1 (T.tensor) : Weight vector 1
+            - param2 (T.tensor) : Weight vector 2
+            - weights (Tuple[float, float]) : Weights for the weighted sum. Default value averages the weights
+            - **kwargs (Dict[str, Any]) : Named arguments to pass to T.zeros_like()
+        Returns:
+            - wvi, wvj (Tuple[T.tensor, T.tensor]) : Modified weights for param1, param2
+        """
+        # get result tensor
+        assert weights[0] + weights[1] == 1
+        result = (weights[0] * param1) + (weights[1] * param2)
+        return result, T.zeros_like(param2, **kwargs)
 
-    def delete_neurons(self, param1: T.tensor, param2: T.tensor, *args, **kwargs):
-        raise NotImplementedError
+    def _prune_parameter(self, name: str, model: nn.Module, **kwargs):
+        result = {}
+        result[name] = []
+        # retrieve module params
+        with T.no_grad():
+            for idx, (name_, wi) in enumerate(model.named_parameters()):
+                if "weight" in name_ and name_ == name:
+                    raise NotImplementedError
 
-    def __call__(self, model: nn.Module, iteration: int, *args, **kwargs):
+    def __call__(
+        self,
+        model: nn.Module,
+        parameter: str,
+        use_nograd: Optional[bool] = True,
+        *args,
+        **kwargs,
+    ):
+        """
+        Run distinctiveness pruning across all model parameters
+        """
         raise NotImplementedError

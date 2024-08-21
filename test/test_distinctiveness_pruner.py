@@ -35,3 +35,18 @@ class TestDistinctivenessPrune:
 
         result = pruner.get_angle(wv1, wv2)
         assert int(result) == 72  # some wiggle room to allow for fp
+
+    def test_merge_neurons_lenet(self):
+        T.manual_seed(0)
+        model = LeNet(0.0)
+        pruner = DistinctivenessPruning(tolerance=(30, 150), model=model, device=device)
+        m = pruner.current_modules()
+        m1, module1 = m["curr"]
+
+        # retrieve weight vector from modules
+        param1 = next(module1.parameters())
+        wv1 = param1[0]
+        wv2 = param1[1]
+        result1, result2 = pruner.merge_neurons(wv1, wv2)
+        assert T.sum(result1).item() - -0.4820 <= 0.0001
+        assert T.sum(result2).item() == 0
