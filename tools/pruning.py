@@ -138,7 +138,6 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         """
         Apply function to the parameters of model
         Args:
-        ---
             - function (callable) : Function to determine the pruning weights
             - model (nn.Module) : Model object
             - **kwargs (dict[str, Any]) : Named arguments for the pruning weight function
@@ -219,7 +218,7 @@ class DistinctivenessPruning(IterativeDragonPruner):
             - t (T.tensor) : Importance scores
             - default_mask (T.Tensor) : Pytorch base mask
         Returns:
-            - mask (T.Tensor) : mask.shape == t.shape
+            T.Tensor
         """
         raise NotImplementedError
 
@@ -227,13 +226,12 @@ class DistinctivenessPruning(IterativeDragonPruner):
         """
         Calculate angle (degrees) from between weights vectors W_i, W_j
         Args:
-        ---
             - param1 (T.tensor) : Weight vector 1
             - param2 (T.tensor) : Weight vector 2
             - *args (dict[str, Any]) : Named arguments for Torch.dot
             - **kwargs (dict[str, Any]) : Named arguments for Torch.norm
         Returns:
-            result (T.tensor) - resultant angle
+            T.tensor
         """
         numerator = T.dot(param1, param2, *args)
         denominator = T.norm(param1, **kwargs) * T.norm(param2, **kwargs)
@@ -250,20 +248,19 @@ class DistinctivenessPruning(IterativeDragonPruner):
         """
         Modify gradients for param1 := 1/2 (param1+param2). Must return averaged weights, T.zeros_like(param2) to comply with IterativeDragonPruner
         Args:
-        ---
             - param1 (T.tensor) : Weight vector 1
             - param2 (T.tensor) : Weight vector 2
             - weights (Tuple[float, float]) : Weights for the weighted sum. Default value averages the weights
             - **kwargs (Dict[str, Any]) : Named arguments to pass to T.zeros_like()
         Returns:
-            - wvi, wvj (Tuple[T.tensor, T.tensor]) : Modified weights for param1, param2
+            Tuple[T.tensor, T.tensor]
         """
         # get result tensor
         assert weights[0] + weights[1] == 1
         result = (weights[0] * param1) + (weights[1] * param2)
         return result, T.zeros_like(param2, **kwargs)
 
-    def _prune_parameter(self, name: str, model: nn.Module, **kwargs):
+    def _prune_parameter(self, name: str, model: nn.Module, **kwargs):  # TODO
         result = {}
         result[name] = []
         # retrieve module params
