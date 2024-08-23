@@ -48,6 +48,17 @@ class IterativeDragonPruner(prune.BasePruningMethod):
             nn.Transformer,
         ]
 
+    @property
+    def allowed_modules_str(self):
+        return [
+            "linear",
+            "conv1d",
+            "rnn",
+            "lstm",
+            "gru",
+            "transformer",
+        ]
+
     def current_modules(self):
         return self.current_module
 
@@ -258,8 +269,8 @@ class DistinctivenessPruning(IterativeDragonPruner):
 
     def __call__(
         self,
-        model: nn.Module,
         parameter: str,
+        model: nn.Module,
         over_next_layer: Optional[bool] = False,
         return_result_dict: Optional[bool] = False,
         **kwargs,
@@ -267,6 +278,23 @@ class DistinctivenessPruning(IterativeDragonPruner):
         """
         Run distinctiveness pruning across all model parameters
         """
+        layer_type = ""
+        param = parameter.split(".")[0].lower()
+
+        match param:
+            case s if "fc" in s:
+                layer_type = "linear"
+            case s if "lstm" in s:
+                layer_type = "lstm"
+            case s if "gru" in s:
+                layer_type = "gru"
+            case s if "rnn" in s:
+                layer_type = "rnn"
+            case s if "transformer" in s:
+                layer_type = "transformer"
+
+        if not layer_type in self.allowed_modules_str:
+            raise ValueError
         result, model_ = self._prune_parameter(
             parameter, model, over_next_layer=over_next_layer
         )

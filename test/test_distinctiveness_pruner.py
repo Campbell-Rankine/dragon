@@ -61,8 +61,8 @@ class TestDistinctivenessPrune:
         pruner = DistinctivenessPruning(
             tolerance=(79, 99), model=model, device=device
         )  # Weights mostly orthogonal, average doesn't really change much
-        result, model_ = pruner._prune_parameter(
-            "fc2.weight", model, over_next_layer=True
+        model_, result = pruner(
+            "fc2.weight", model, over_next_layer=True, return_result_dict=True
         )
 
         weights1 = model_.__getattr__("fc2").weight
@@ -85,8 +85,8 @@ class TestDistinctivenessPrune:
         pruner = DistinctivenessPruning(
             tolerance=(79, 99), model=model, device=device
         )  # Weights mostly orthogonal, average doesn't really change much
-        result, model_ = pruner._prune_parameter(
-            "fc2.weight", model, over_next_layer=True
+        model_, result = pruner(
+            "fc2.weight", model, over_next_layer=True, return_result_dict=True
         )
         print(result)
 
@@ -96,3 +96,20 @@ class TestDistinctivenessPrune:
 
         print(T.sum(weights1), first_sum)
         assert T.sum(weights1) == first_sum
+
+    def test_invalid_parameter_lenet(self):
+        T.manual_seed(0)
+        model = LeNet(0.0)
+
+        old_weights = model.__getattr__("conv1").weight
+        first_sum: float = T.sum(old_weights)
+
+        pruner = DistinctivenessPruning(tolerance=(79, 99), model=model, device=device)
+        try:  # Weights mostly orthogonal, average doesn't really change much
+            model_, result = pruner(
+                "conv1.weight", model, over_next_layer=True, return_result_dict=True
+            )
+            assert False
+
+        except ValueError:
+            assert True
