@@ -41,9 +41,7 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         return [
             nn.Linear,
             nn.Conv1d,
-            nn.Conv2d,
             nn.ConvTranspose1d,
-            nn.ConvTranspose2d,
             nn.RNN,
             nn.LSTM,
             nn.GRU,
@@ -85,6 +83,10 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         except IndexError:
             self.STOP_FLAG = True
 
+    def modify_weight(self, model, name, value):
+        model.__getattr__(name).__setattr__("weight", value)
+        return model
+
     def _init_all_module_pairs(self):
         # TODO: Use update_module_data to build out all of the curr, next pairs of modules. Low priority as will be useful in runtime optimization
         raise NotImplementedError
@@ -94,97 +96,35 @@ class IterativeDragonPruner(prune.BasePruningMethod):
         function: callable,
         model: nn.Module,
         name: str,
+        idx: int,
         over_next_layer=False,
-        **kwargs,
     ):
-        # TODO: write function to only apply callable to one specific named_param
+
         result = {}
         result[name] = []
         # retrieve module params
         with T.no_grad():
-            for idx, (name_, wi) in enumerate(model.named_parameters()):
+            for index, (name_, module) in enumerate(model.named_parameters()):
                 if "weight" in name_ and name_ == name:
-                    new_weights = None
-                    wj = None
-                    next_name = None
-                    if (
-                        over_next_layer
-                    ):  # I reckon get rid of this functionality, you can simply
-                        try:
-                            next_name, wj = next(
-                                model.named_parameters()
-                            )  # TODO: Test 2 parameter pruning
-                        except Exception as e:
-                            print(e)
-                            break
-                        new_weights_i, new_weights_j = function(wi, wj, model, **kwargs)
-                        wi.copy_(new_weights_i)
-                        wj.copy_(new_weights_j)
-                        result[name].append({name_: new_weights_i})
-                        result[name].append({next_name: new_weights_j})
-                    else:
-                        new_weights = function(wi, model, **kwargs)
-                        wi.copy_(new_weights)
-                        result[name].append({name_: new_weights})
-        return result
-
-    def apply_fn(
-        self,
-        function: callable,
-        model: nn.Module,
-        over_next_layer: Optional[bool] = False,
-        **kwargs,
-    ):
-        """
-        Apply function to the parameters of model
-        Args:
-            - function (callable) : Function to determine the pruning weights
-            - model (nn.Module) : Model object
-            - **kwargs (dict[str, Any]) : Named arguments for the pruning weight function
-        """
-        result = {}
-        while self.STOP_FLAG == False:
-            # initial objects
-            param_finished = False
-
-            # check pair against ground truth
-            m = self.current_modules()
-            name, module = m["curr"]
-
-            if not name in result.keys():
-                result[name] = []
-
-            # retrieve module params
-            with T.no_grad():
-                for idx, (name_, wi) in enumerate(module.named_parameters()):
-                    if "weight" in name_:
-                        new_weights = None
-                        wj = None
-                        next_name = None
-                        if (
-                            over_next_layer
-                        ):  # I reckon get rid of this functionality, you can simply
-                            try:
-                                next_name, wj = next(
-                                    module.named_parameters()
-                                )  # TODO: Test 2 parameter pruning
-                            except Exception as e:
-                                print(e)
-                                break
-                            new_weights_i, new_weights_j = function(
-                                wi, wj, model, **kwargs
-                            )
-                            wi.copy_(new_weights_i)
-                            wj.copy_(new_weights_j)
-                            result[name].append({name_: new_weights_i})
-                            result[name].append({next_name: new_weights_j})
-                        else:
-                            new_weights = function(wi, model, **kwargs)
-                            wi.copy_(new_weights)
-                            result[name].append({name_: new_weights})
-
-            # update module
-            self._next_module()
+                    for idx_, param in enumerate(module[:-1]):
+                        if idx == idx_:
+                            wi = param
+                            wj = None
+                            if over_next_layer:
+                                wj = module[idx + 1]
+                                new_weights_i, new_weights_j = function(wi, wj)
+                                wi.copy_(new_weights_i)
+                                wj.copy_(new_weights_j)
+                                result[name].append(
+                                    {name_ + "_" + str(idx): new_weights_i}
+                                )
+                                result[name].append(
+                                    {name_ + "_" + str(idx + 1): new_weights_j}
+                                )
+                            else:
+                                new_weights = function(wi)
+                                wi.copy_(new_weights)
+                                result[name].append({name_: new_weights})
         return result
 
 
@@ -209,7 +149,7 @@ class DistinctivenessPruning(IterativeDragonPruner):
         self._save_grad = save_grad
 
         # storage
-        self.mask = []
+        self.mask = {"deleted": [], "merged": []}  # Only push merged neurons to remove.
 
     def compute_mask(self, t, default_mask) -> T.Tensor:
         """
@@ -242,8 +182,6 @@ class DistinctivenessPruning(IterativeDragonPruner):
         self,
         param1: T.tensor,
         param2: T.tensor,
-        weights: Optional[Tuple[float, float]] = (0.5, 0.5),
-        **kwargs,
     ) -> Tuple[T.tensor, T.tensor]:
         """
         Modify gradients for param1 := 1/2 (param1+param2). Must return averaged weights, T.zeros_like(param2) to comply with IterativeDragonPruner
@@ -256,18 +194,67 @@ class DistinctivenessPruning(IterativeDragonPruner):
             Tuple[T.tensor, T.tensor]
         """
         # get result tensor
-        assert weights[0] + weights[1] == 1
-        result = (weights[0] * param1) + (weights[1] * param2)
-        return result, T.zeros_like(param2, **kwargs)
 
-    def _prune_parameter(self, name: str, model: nn.Module, **kwargs):  # TODO
+        result = (0.5 * param1) + (0.5 * param2)
+        return result, T.zeros_like(param2)
+
+    def _prune_parameter(
+        self,
+        name: str,
+        model: nn.Module,
+        **kwargs,
+    ):
+        """
+        Apply the correct pruning function to each of the modules. Store the parameters to be pruned, and store the values to calculate the mask
+        Args:
+            - name (str) : Name of the model parameter to prune
+            - model (nn.Module) : Pytorch Module
+            - over_next_layer (Optional[bool]) : Apply to two layers of weight parameters
+            - **kwargs (Dict[str, Any]) : Keyword args for self.apply_to
+
+        """
+        result_ = {}
         result = {}
+        result["angle"] = []
         result[name] = []
         # retrieve module params
         with T.no_grad():
-            for idx, (name_, wi) in enumerate(model.named_parameters()):
+            for idx, (name_, module) in enumerate(model.named_parameters()):
                 if "weight" in name_ and name_ == name:
-                    raise NotImplementedError
+                    old_weights = module
+                    for idx, param in enumerate(module[:-1]):
+                        # get params
+                        wvi = param
+                        wvj = module[idx + 1]
+
+                        # calc angle and apply tolerance
+                        angle = self.get_angle(wvi, wvj)
+                        result["angle"].append(angle)
+                        if angle <= self.min_angle:
+                            res = self.apply_to(
+                                self.merge_neurons,
+                                model,
+                                name,
+                                idx,
+                                **kwargs,
+                            )
+                            result[name] = res[name]
+                            self.mask["merged"].append((name, name_, idx + 1))
+                        if angle >= self.max_angle:
+                            self.mask["deleted"].append((name, name_, idx))
+                            self.mask["deleted"].append((name, name_, idx + 1))
+                    ind = None
+                    new_weights = None
+                    try:
+                        ind = int(list(result[name][0].keys())[0].split("_")[-1])
+                    except IndexError:
+                        continue
+                    new_weights = dict(model.named_parameters())[name]
+                    new_weights[ind] = result[name][0][f"{name}_{ind}"]
+                    new_weights[ind + 1] = T.zeros_like(new_weights[ind])
+        if not new_weights is None:
+            model.__getattr__(name.split(".")[0]).__setattr__("weight", new_weights)
+        return result, model
 
     def __call__(
         self,

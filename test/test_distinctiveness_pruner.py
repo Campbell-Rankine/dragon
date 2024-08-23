@@ -50,3 +50,49 @@ class TestDistinctivenessPrune:
         result1, result2 = pruner.merge_neurons(wv1, wv2)
         assert T.sum(result1).item() - -0.4820 <= 0.0001
         assert T.sum(result2).item() == 0
+
+    def test_prune_parameter_lenet(self):
+        T.manual_seed(0)
+        model = LeNet(0.0)
+
+        old_weights = model.__getattr__("fc2").weight
+        first_sum: float = T.sum(old_weights)
+
+        pruner = DistinctivenessPruning(
+            tolerance=(79, 99), model=model, device=device
+        )  # Weights mostly orthogonal, average doesn't really change much
+        result, model_ = pruner._prune_parameter(
+            "fc2.weight", model, over_next_layer=True
+        )
+
+        weights1 = model_.__getattr__("fc2").weight
+        weights2 = old_weights
+        assert weights1.shape == weights2.shape
+
+        print(T.sum(weights1), first_sum)
+        assert not (T.sum(weights1) == first_sum)
+
+    def test_prune_parameter_lstm(self):
+        # weights won't be pruned. Assert weights equal
+        T.manual_seed(0)
+        model_config = LSTMTSConfig()
+        model = LSTMTS(model_config)
+
+        old_weights = model.__getattr__("fc2").weight
+        first_sum: float = T.sum(old_weights)
+        print(first_sum)
+
+        pruner = DistinctivenessPruning(
+            tolerance=(79, 99), model=model, device=device
+        )  # Weights mostly orthogonal, average doesn't really change much
+        result, model_ = pruner._prune_parameter(
+            "fc2.weight", model, over_next_layer=True
+        )
+        print(result)
+
+        weights1 = model_.__getattr__("fc2").weight
+        weights2 = old_weights
+        assert weights1.shape == weights2.shape
+
+        print(T.sum(weights1), first_sum)
+        assert T.sum(weights1) == first_sum

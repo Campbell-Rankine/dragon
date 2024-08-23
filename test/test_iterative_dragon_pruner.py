@@ -43,66 +43,27 @@ class TestDragonPruner:
             counter <= 5 and pruner.STOP_FLAG == True
         )  # make sure stop flag and counter work
 
-    # test apply for IterativeDragonPruner: 1. Result returns the correct 0's Tensor. 2. The model has it's weights changed to the correct 0's Tensor (Conv Network)
-    def test_apply_func_lenet(self):
-        model = LeNet(0.0)
-        pruner = IterativeDragonPruner(model)
-
-        # define pruning function
-        def prune_func(wi: T.tensor, wj: T.tensor, model: nn.Module):
-            return T.zeros_like(wi), T.zeros_like(wj)
-
-        with T.no_grad():
-            result = pruner.apply_fn(prune_func, model, over_next_layer=True)
-
-        for idx, (k, v) in enumerate(result.items()):
-            assert k == module_list[idx]
-            for value in v:
-                k2 = list(value.keys())[0]
-                assert T.sum(value[k2]) == 0
-                assert T.sum(model.state_dict()[f"{k}.{k2}"]) == 0
-
-    # test apply for IterativeDragonPruner: 1. Result returns the correct 0's Tensor. 2. The model has it's weights changed to the correct 0's Tensor (LSTM network)
-    def test_apply_func_lstm(self):
-        model_config = LSTMTSConfig()
-        model = LSTMTS(model_config)
-        pruner = IterativeDragonPruner(model)
-
-        # define pruning function
-        def prune_func(wi: T.tensor, wj: T.tensor, model: nn.Module):
-            return T.zeros_like(wi), T.zeros_like(wj)
-
-        with T.no_grad():
-            result = pruner.apply_fn(prune_func, model, over_next_layer=True)
-
-        for idx, (k, v) in enumerate(result.items()):
-            assert k == module_list2[idx]
-            for value in v:
-                k2 = list(value.keys())[0]
-                assert T.sum(value[k2]) == 0
-                assert T.sum(model.state_dict()[f"{k}.{k2}"]) == 0
-
     # Test apply to for a named param (cnn)
     def test_apply_to_lenet(self):
         model = LeNet(0.0)
         pruner = IterativeDragonPruner(model)
 
         # define pruning function
-        def prune_func(wi: T.tensor, model: nn.Module):
+        def prune_func(wi: T.tensor):
             return T.zeros_like(wi)
 
         with T.no_grad():
             result = pruner.apply_to(
-                prune_func, model, "conv2.weight", over_next_layer=False
+                prune_func, model, "fc2.weight", 0, over_next_layer=False
             )
 
         for result_weight in result[list(result.keys())[0]]:
             key = list(result_weight.keys())[0]
-            assert T.sum(result_weight[key]) == 0
+            assert T.sum(result_weight[key][0]) == 0
 
         for name, module in model.named_parameters():
-            if name == "conv2.weight":
-                assert T.sum(module) == 0
+            if name == "fc2.weight":
+                assert T.sum(module[0]) == 0
 
     # Test apply to for a named param (lstm)
     def test_apply_to_lstm(self):
@@ -111,18 +72,20 @@ class TestDragonPruner:
         pruner = IterativeDragonPruner(model)
 
         # define pruning function
-        def prune_func(wi: T.tensor, model: nn.Module):
+        def prune_func(
+            wi: T.tensor,
+        ):
             return T.zeros_like(wi)
 
         with T.no_grad():
             result = pruner.apply_to(
-                prune_func, model, "lstm.weight_hh_l0", over_next_layer=False
+                prune_func, model, "lstm.weight_hh_l0", 0, over_next_layer=False
             )
 
         for result_weight in result[list(result.keys())[0]]:
             key = list(result_weight.keys())[0]
-            assert T.sum(result_weight[key]) == 0
+            assert T.sum(result_weight[key][0]) == 0
 
         for name, module in model.named_parameters():
             if name == "lstm.weight_hh_l0":
-                assert T.sum(module) == 0
+                assert T.sum(module[0]) == 0
