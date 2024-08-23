@@ -260,11 +260,16 @@ class DistinctivenessPruning(IterativeDragonPruner):
         self,
         model: nn.Module,
         parameter: str,
-        use_nograd: Optional[bool] = True,
-        *args,
+        over_next_layer: Optional[bool] = False,
+        return_result_dict: Optional[bool] = False,
         **kwargs,
     ):
         """
         Run distinctiveness pruning across all model parameters
         """
-        raise NotImplementedError
+        result, model_ = self._prune_parameter(
+            parameter, model, over_next_layer=over_next_layer
+        )
+        if return_result_dict:
+            return model_, result
+        return model_, None
