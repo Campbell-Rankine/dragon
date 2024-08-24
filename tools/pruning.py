@@ -144,6 +144,9 @@ class DistinctivenessPruning(IterativeDragonPruner):
     Prune a pytorch model of the types allowed by IterativeDragonPruner (extends IterativeDragonPruner). Prunes weights by either merging or deleting weight vectors that point the same / opposite directions.
     If the angle between weight vectors W_i and W_j < 30 they are more or less contributing the same thing, so average the weights and combine them into a single vector W_r.
     If the angle between weight vectors W_i and W_j > 150 they are more or less cancelling eachother out. So delete both.
+
+    # TODO: Cleanup above class
+    # TODO: Cleanup this class
     """
 
     def __init__(
