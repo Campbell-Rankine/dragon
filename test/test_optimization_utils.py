@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from botorch.acquisition import ProbabilityOfImprovement, ExpectedImprovement
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 
-from search.acquisition.functions import probability_improvement
+from search.acquisition.functions import probability_improvement, expected_improvement
 from search.models.bopt_models import DragonGPR
 from search.continuous_search import BaseDragonBayesOpt
 from search.hyperparam import Hyperparameter, Constraint, RangeConstraint
@@ -129,3 +129,53 @@ class TestOptUtils:
         assert restart_best["x"][0] - 0.0015897 <= 0.001
         assert restart_best["x"][1] - 0.90551876 <= 0.001
         assert restart_best["x"][2] - 0.98281582 <= 0.001
+
+    def test_bopt_sample_from_bounds_expected_improvement(self):
+        # initialize hyperparameters (test fn: lr cannot be a float % 2 == 0)
+        T.manual_seed(0)
+        np.random.seed(0)
+
+        def lr_constraint(value: float) -> bool:
+            return int(100 * value) % 2 == 0
+
+        lr_param = Hyperparameter(
+            name="lr",
+            type_="numerical",
+            x=0.01,
+            constraints=[Constraint(lr_constraint)],
+            range_=(1e-10, 1e-2),
+        )
+
+        beta0_param = Hyperparameter(
+            name="beta0",
+            type_="numerical",
+            x=0.91,
+            range_=(0.9, 0.95),
+        )
+
+        beta1_param = Hyperparameter(
+            name="beta1",
+            type_="numerical",
+            x=0.97,
+            range_=(0.95, 0.999999),
+        )
+
+        def bad_model(x, lr):
+            return 10 * x[0][0]
+
+        # objective function
+        def obj(model: callable, input_):
+            return model(input_)
+
+        bopt = BaseDragonBayesOpt(
+            objective_function=obj,
+            Y_init=T.tensor([1.0]),
+            hyper_params=[lr_param, beta0_param, beta1_param],
+            acquisition_function=expected_improvement,
+        )
+
+        restart_best = bopt._sample_next_points(xi=0.05)
+        # check predicted LR
+        assert restart_best["x"][0] - 0.00264556 <= 0.001
+        assert restart_best["x"][1] - 0.93871167 <= 0.001
+        assert restart_best["x"][2] - 0.97280707 <= 0.001

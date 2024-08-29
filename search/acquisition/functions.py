@@ -49,3 +49,35 @@ def probability_improvement(
     Z = (T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi) / stdX
     result = Normal(0, 1).cdf(Z)
     return result
+
+
+def expected_improvement(
+    X: np.ndarray,
+    X_Sample: T.tensor,
+    regressor: ExactGP,
+    xi=0.01,
+    *tensor_args,
+    **regressor_kwargs,
+):
+    """
+    Expected Improvement Acquisition improvement
+    Instead of probability of improvement compute the expected improvement
+
+    Args: Same as above
+    """
+    X = T.tensor(X, *tensor_args)
+    # check regressor class object
+    has_forward = getattr(
+        regressor, "forward", None
+    )  # pass default value None to stop getattr from raising an exception
+    assert callable(has_forward)
+    # calculate stddev of X
+    stdX = T.std(X)
+    if stdX == 0:
+        return T.tensor(0.0, *tensor_args)
+
+    # Get sampled Z-scores
+    pred = regressor.forward(X_Sample, **regressor_kwargs)
+    Zi = T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi
+    Z = (Zi) / stdX
+    return Zi * Normal(0, 1).cdf(Z) + stdX * Normal(0, 1).log_prob(Z).exp()

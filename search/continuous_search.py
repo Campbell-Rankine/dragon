@@ -106,7 +106,6 @@ class BaseDragonBayesOpt:
             return sampling(**kwargs)
         else:
             vector = self.bounds["vector"].T
-            print(vector)
             sample = np.random.uniform(
                 vector[:, 0], vector[:, 1], size=(num_restarts, self.N)
             )
@@ -140,5 +139,10 @@ class BaseDragonBayesOpt:
     def _push_iteration_storage(self):
         raise NotImplementedError
 
+    def fit(self):
+        # TODO: Run the entire optimization pipeline (small cost models)
+        raise NotImplementedError
+
     def __call__(self):
+        # TODO: Run 1 iteration of the optimization pipeline (high cost models)
         raise NotImplementedError
