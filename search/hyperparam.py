@@ -16,7 +16,27 @@ class Constraint:
             raise ValueError(
                 "Invalid constraint function, please make sure the function returns a boolean"
             )
-        assert result
+        return result
+
+
+class RangeConstraint:
+    def __init__(
+        self,
+        max_: float,
+        min_: float,
+    ):
+        self.max = max_
+        self.min = min_
+
+    def __call__(self, x: Any):
+        if x > self.max:
+            return False
+        if x < self.min:
+            return False
+        return True
+
+    def __repr__(self):
+        return f"Max: {self.max}, Min: {self.min}"
 
 
 class Hyperparameter:
@@ -25,19 +45,22 @@ class Hyperparameter:
         name: str,
         type_: str,
         x: Optional[Any] = 0.0,
-        constraints: Optional[List[Constraint]] = None,
+        constraints: Optional[List[Constraint]] = [],
         range_: Optional[Tuple[Any, Any]] = (0.0, 1.0),
         sampling_fn: Optional[callable] = T.rand,
         tensor_kwargs: Optional[Dict[str, Any]] = None,
         sample_kwargs: Optional[Dict[str, Any]] = None,
         device: Optional[str] = "cpu",
-        cache_future_values: Optional[bool] = False,
+        cache_future_values: Optional[
+            bool
+        ] = False,  # TODO: Implement Caching of future values
+        cache_window: Optional[int] = 30,
     ):
         # initial attribute setup
         self.name = name
         self.type = type_
-        self.contraints = constraints
-        self.range = range_
+        self.constraints = constraints
+        self.range = RangeConstraint(max_=range_[1], min_=range_[0])
         self.__device = device
         self.sampler = sampling_fn
         self.future_cache = cache_future_values
@@ -48,19 +71,33 @@ class Hyperparameter:
         # Assign value
         if tensor_kwargs is None:
             tensor_kwargs = {}
-        self.value = T.tensor(x, device=self.__device, **tensor_kwargs)
+
+        # value init check
+        try:
+            assert self.range(x)
+            self.value = T.tensor(x, device=self.__device, **tensor_kwargs)
+        except AssertionError:
+            raise ValueError(
+                f"Initial value for {self.name}={x} does not satisfy range constraint -> {self.range}"
+            )
 
         # Constraints
         if not constraints is None:
-            self._apply_constraints()
+            self.apply_constraints()
 
         assert self._type_check()
+
+        print(
+            f"Finished Initializing param: {self.name}={self.value}, Range - {self.range}"
+        )
 
     def assign(self, val: Any, **kwargs):
         self.__storage["previous"].append(
             self.__getattr__("value")
         )  # append to storage
         self.__setattr__("value", T.tensor(val, device=self.__device, **kwargs))
+        if not self.apply_constraints():
+            raise ValueError("val does not satisfy constraints")
 
     def update_sample_args(self, args: Dict[str, Any]):
         self.__setattr__("sample_kwargs", args)
@@ -74,30 +111,18 @@ class Hyperparameter:
 
         return self.item
 
-    # helper functions
-    @property
-    def device(self):
-        return self.__device
-
-    @property
-    def item(self):
-        return self.value.item()
-
-    @property
-    def search_type(self):
-        return self.type
-
-    @property
-    def history(self):
-        return self.__storage["previous"]
-
     def __repr__(self):
         return f"{self.name}={self.value}"
 
-    def _apply_constraints(self, **kwargs):
-        for x in self.constraints:
-            assert isinstance(x, callable)
-            x(**kwargs)
+    def apply_constraints(self, **kwargs):
+        val = False
+        for x in self.__getattribute__("constraints"):
+            try:
+                val = x(self.value, **kwargs)
+            except AssertionError:
+                print("error")
+                return False
+        return val
 
     def _type_check(self):
         match self.type:

@@ -88,13 +88,9 @@ class TestDistinctivenessPrune:
         model_, result = pruner(
             "fc2.weight", model, over_next_layer=True, return_result_dict=True
         )
-        print(result)
-
         weights1 = model_.__getattr__("fc2").weight
         weights2 = old_weights
         assert weights1.shape == weights2.shape
-
-        print(T.sum(weights1), first_sum)
         assert T.sum(weights1) == first_sum
 
     def test_invalid_parameter_lenet(self):

@@ -10,3 +10,5 @@ yahoo_fin
 tqdm
 matplotlib
 requests_html
+gpytorch
+botorch
