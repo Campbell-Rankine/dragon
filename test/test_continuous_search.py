@@ -67,7 +67,7 @@ class TestBayesOpt:
         assert result["Y"] == T.tensor([1.0])
         assert bopt.stop
 
-    def test_five_iters(self):
+    def test_two_iters_lstm(self):
         # seed
         T.manual_seed(0)
         np.random.seed(0)

@@ -162,7 +162,15 @@ class BaseDragonBayesOpt:
         xi: Optional[float] = 0.05,
         **kwargs,
     ):
-        # TODO: Run 1 iteration of the optimization pipeline (high cost models)
+        """
+        Run a bayes opt iteration. Get model output, sample most likely hyperparameters to maximize the objective function, return best params.
+        Args:
+            - model (Any) : Pytorch model object. Currently only supports nn.Module (call)
+            - batch_X (T.tensor) : Input data to the model
+            - batch_Y (T.tensor) : Model ground truth
+            - xi (float) : Optional exploitation vs exploration parameter (default: 0.05)
+            - **kwargs : Objective function named arguments
+        """
         if self.current_iter >= self.iters or self.stop:
             self.__setattr__("stop", True)
             return self.prev_samples["best"]
