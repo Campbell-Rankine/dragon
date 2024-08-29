@@ -76,9 +76,6 @@ class BaseDragonBayesOpt:
                     f"Input shape for Hyperparams: {len(self.params)} does not match X_init shape: {1}"
                 )
 
-    def _map_hyperparams_to_obj(self):
-        raise NotImplementedError
-
     def __init_pbounds(self, *tensor_args):
         constraint_fn_app = {}
         values = []
@@ -150,9 +147,25 @@ class BaseDragonBayesOpt:
             "Y": -1 * restart_best["value"],
         }
 
-    def fit(self):
-        # TODO: Run the entire optimization pipeline (small cost models)
-        raise NotImplementedError
+    def add_to_x(self, x_tensor):
+        try:
+            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
+        except:
+            x_tensor = x_tensor.unsqueeze(0)
+            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
+
+    def add_to_y(self, y_tensor):
+        try:
+            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
+        except:
+            y_tensor = y_tensor.unsqueeze(0)
+            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
+
+    def assign_values_to_hyperparams(self, input_tensor: T.tensor):
+        assert input_tensor.shape[0] == len(self.params)
+        for i in range(len(self.params)):
+            value = input_tensor[i].item()
+            self.params[i].assign(value)
 
     def __call__(
         self,
@@ -181,21 +194,15 @@ class BaseDragonBayesOpt:
 
         # storage handling
         self._push_iteration_storage(restart_best=restart_best)
-        x_tensor = T.from_numpy(restart_best["x"])
-        try:
-            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
-        except:
-            x_tensor = x_tensor.unsqueeze(0)
-            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
 
+        # push new samples to internal storage (self._X_sample, self._Y_sample)
+        x_tensor = T.from_numpy(restart_best["x"])
         y_tensor = self.obj_fnc(model, batch_X, batch_Y, **kwargs)
-        try:
-            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
-        except:
-            y_tensor = y_tensor.unsqueeze(0)
-            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
+        self.add_to_x(x_tensor)
+        self.add_to_y(y_tensor)
 
         # attribute updates
         self.__setattr__("current_iter", self.__getattribute__("current_iter") + 1)
+        self.assign_values_to_hyperparams(x_tensor)
 
         return restart_best

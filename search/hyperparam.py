@@ -93,7 +93,7 @@ class Hyperparameter:
 
     def assign(self, val: Any, **kwargs):
         self.__storage["previous"].append(
-            self.__getattr__("value")
+            self.__getattribute__("value")
         )  # append to storage
         self.__setattr__("value", T.tensor(val, device=self.__device, **kwargs))
         if not self.apply_constraints():
@@ -116,6 +116,8 @@ class Hyperparameter:
 
     def apply_constraints(self, **kwargs):
         val = False
+        if self.__getattribute__("constraints") == []:
+            return True
         for x in self.__getattribute__("constraints"):
             try:
                 val = x(self.value, **kwargs)

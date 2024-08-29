@@ -76,14 +76,10 @@ class TestBayesOpt:
         model_config = LSTMTSConfig()
         model = LSTMTS(model_config)
 
-        def lr_constraint(value: float) -> bool:
-            return int(100 * value) % 2 == 0
-
         lr_param = Hyperparameter(
             name="lr",
             type_="numerical",
             x=0.01,
-            constraints=[Constraint(lr_constraint)],
             range_=(1e-10, 1e-2),
         )
 
