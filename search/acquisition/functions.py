@@ -45,7 +45,7 @@ def probability_improvement(
         return T.tensor(0.0, *tensor_kwargs)
 
     # Get sampled Z-scores
-    pred = regressor.forward(X_sample, **regressor_kwargs)
+    pred = regressor.forward(X_sample.type(T.float), **regressor_kwargs)
     Z = (T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi) / stdX
     result = Normal(0, 1).cdf(Z)
     return result
@@ -77,7 +77,7 @@ def expected_improvement(
         return T.tensor(0.0, *tensor_args)
 
     # Get sampled Z-scores
-    pred = regressor.forward(X_Sample, **regressor_kwargs)
+    pred = regressor.forward(X_Sample.type(T.float), **regressor_kwargs)
     Zi = T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi
     Z = (Zi) / stdX
     return Zi * Normal(0, 1).cdf(Z) + stdX * Normal(0, 1).log_prob(Z).exp()

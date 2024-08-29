@@ -54,10 +54,13 @@ class BaseDragonBayesOpt:
 
         # init storage
         self.Y0 = Y_init
+        if not len(self.X0.shape) > 1:
+            self._X_sample = self.X0.unsqueeze(0)
         self._X_sample = self.X0
         self._Y_sample = self.Y0
 
         self.prev_samples = {"best": {"X": self.X0, "Y": self.Y0}}
+        self.stop = False
 
     def _param_length_check(self, X_init):
         try:
@@ -136,13 +139,55 @@ class BaseDragonBayesOpt:
                 restart_best["x"] = res.x
         return restart_best
 
-    def _push_iteration_storage(self):
-        raise NotImplementedError
+    def _push_iteration_storage(self, restart_best: dict):
+        if -1 * restart_best["value"] >= self.prev_samples["best"]["Y"]:
+            self.prev_samples["best"] = {
+                "X": restart_best["x"],
+                "Y": -1 * restart_best["value"],
+            }
+        self.prev_samples[f"{self.current_iter}"] = {
+            "X": restart_best["x"],
+            "Y": -1 * restart_best["value"],
+        }
 
     def fit(self):
         # TODO: Run the entire optimization pipeline (small cost models)
         raise NotImplementedError
 
-    def __call__(self):
+    def __call__(
+        self,
+        model,
+        batch_X: T.tensor,
+        batch_Y: T.tensor,
+        xi: Optional[float] = 0.05,
+    ):
         # TODO: Run 1 iteration of the optimization pipeline (high cost models)
-        raise NotImplementedError
+        if self.current_iter >= self.iters or self.stop:
+            self.__setattr__("stop", True)
+            return self.prev_samples["best"]
+
+        # iteration sample
+        restart_best = self._sample_next_points(xi=xi)
+        print(f"Found new best sample: {restart_best['x']} = {restart_best['value']}")
+
+        # storage handling
+        self._push_iteration_storage(restart_best=restart_best)
+        x_tensor = T.from_numpy(restart_best["x"])
+        print(self._X_sample.shape, x_tensor.shape)
+        try:
+            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
+        except:
+            x_tensor = x_tensor.unsqueeze(0)
+            self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
+
+        y_tensor = T.tensor([restart_best["value"]])
+        try:
+            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
+        except:
+            y_tensor = y_tensor.unsqueeze(0)
+            self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
+
+        # attribute updates
+        self.__setattr__("current_iter", self.__getattribute__("current_iter") + 1)
+
+        return restart_best
