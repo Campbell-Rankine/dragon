@@ -160,6 +160,7 @@ class BaseDragonBayesOpt:
         batch_X: T.tensor,
         batch_Y: T.tensor,
         xi: Optional[float] = 0.05,
+        **kwargs,
     ):
         # TODO: Run 1 iteration of the optimization pipeline (high cost models)
         if self.current_iter >= self.iters or self.stop:
@@ -173,14 +174,13 @@ class BaseDragonBayesOpt:
         # storage handling
         self._push_iteration_storage(restart_best=restart_best)
         x_tensor = T.from_numpy(restart_best["x"])
-        print(self._X_sample.shape, x_tensor.shape)
         try:
             self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
         except:
             x_tensor = x_tensor.unsqueeze(0)
             self._X_sample = T.concat((self._X_sample, x_tensor), dim=0)
 
-        y_tensor = T.tensor([restart_best["value"]])
+        y_tensor = self.obj_fnc(model, batch_X, batch_Y, **kwargs)
         try:
             self._Y_sample = T.concat((self._Y_sample, y_tensor), dim=0)
         except:

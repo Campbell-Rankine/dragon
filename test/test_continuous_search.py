@@ -110,12 +110,12 @@ class TestBayesOpt:
         )
         y_train = T.tensor([[1.0], [1.0], [0.0]])
 
-        def obj(model, X, y, prediction_name: Optional[str] = "call"):
+        def obj(model, X, y, hprev, cprev, prediction_name: Optional[str] = "call"):
             count = 0.0
             for i in range(X.shape[0]):
                 x = X[i]
-                y = model(X)
-                count += y
+                (y, _) = model(X, hprev=hprev, cprev=cprev)
+                count += T.sum(y)
             return count
 
         bopt = BaseDragonBayesOpt(
@@ -125,8 +125,20 @@ class TestBayesOpt:
             iters=50,
         )
 
-        result1 = bopt(model=model, batch_X=x_train, batch_Y=y_train)
+        result1 = bopt(
+            model,
+            x_train,
+            y_train,
+            hprev=T.zeros(1, 1, 24),
+            cprev=T.zeros(1, 1, 24),
+        )
         assert result1["value"] - -0.9702878853519408 < 0.001
 
-        result2 = bopt(model=model, batch_X=x_train, batch_Y=y_train)
+        result2 = bopt(
+            model,
+            x_train,
+            y_train,
+            hprev=T.zeros(1, 1, 24),
+            cprev=T.zeros(1, 1, 24),
+        )
         assert -1 * result1["value"] < -1 * result2["value"]
