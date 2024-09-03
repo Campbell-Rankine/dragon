@@ -78,6 +78,9 @@ def expected_improvement(
 
     # Get sampled Z-scores
     pred = regressor.forward(X_Sample.type(T.float), **regressor_kwargs)
-    Zi = T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi
+    try:
+        Zi = T.mean(X, dim=1) - T.mean(pred.sample(X.shape)) - xi
+    except:
+        Zi = T.mean(X, dim=1) - T.mean(pred) - xi
     Z = (Zi) / stdX
     return Zi * Normal(0, 1).cdf(Z) + stdX * Normal(0, 1).log_prob(Z).exp()

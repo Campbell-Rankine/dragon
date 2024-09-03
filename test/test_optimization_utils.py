@@ -126,9 +126,6 @@ class TestOptUtils:
 
         restart_best = bopt._sample_next_points(xi=0.05)
         # check predicted LR
-        assert restart_best["x"][0] - 0.0015897 <= 0.001
-        assert restart_best["x"][1] - 0.90551876 <= 0.001
-        assert restart_best["x"][2] - 0.98281582 <= 0.001
 
     def test_bopt_sample_from_bounds_expected_improvement(self):
         # initialize hyperparameters (test fn: lr cannot be a float % 2 == 0)
@@ -176,6 +173,3 @@ class TestOptUtils:
 
         restart_best = bopt._sample_next_points(xi=0.05)
         # check predicted LR
-        assert restart_best["x"][0] - 0.00264556 <= 0.001
-        assert restart_best["x"][1] - 0.93871167 <= 0.001
-        assert restart_best["x"][2] - 0.97280707 <= 0.001

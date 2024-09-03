@@ -7,8 +7,8 @@ from typing import Optional, List, Tuple, Any, Dict
 
 
 # internal imports
-from search.acquisition.functions import probability_improvement
-from search.models.bopt_models import DragonGPR
+from search.acquisition.functions import probability_improvement, expected_improvement
+from search.models.bopt_models import DragonGPR, BanditosGPR
 from search.hyperparam import Hyperparameter
 
 
@@ -18,15 +18,17 @@ class BaseDragonBayesOpt:
         objective_function: callable,
         Y_init: T.tensor,
         hyper_params: List[Hyperparameter],
-        acquisition_function: Optional[callable] = probability_improvement,
+        acquisition_function: Optional[callable] = expected_improvement,
         kernel: Optional[str] = "Matern5/2",
         eps: Optional[float] = 1e-3,
-        iters: Optional[int] = 30,
+        iters: Optional[int] = 50,
         optim_fn: Optional[callable] = minimize,
-        optim_method: Optional[str] = "L-BFGS-B",
+        optim_method: Optional[str] = "COBYQA",
         likelihood: Optional[callable] = GaussianLikelihood(),
         means: Optional[Any] = ZeroMean(),
-        kernel_scale_wrapper: Optional[bool] = False,
+        kernel_scale_wrapper: Optional[bool] = True,
+        max_optim_iters: Optional[int] = None,
+        regressor_type: Optional[str] = "base",
     ):
         # init attributes
         self.obj_fnc = objective_function
@@ -37,20 +39,33 @@ class BaseDragonBayesOpt:
         self.opt_fn = optim_fn
         self.opt_m = optim_method
         self.params = hyper_params
-        self.bounds, self.X0 = self.__init_pbounds()
+        self.bounds, self.X0 = self.__init_pbounds(regressor_type)
         self._param_length_check(X_init=self.X0)
 
         self.acquisition = acquisition_function
         self.likelihood = likelihood
-        self.regressor = DragonGPR(
-            self.X0,
-            Y_init,
-            likelihood=self.likelihood,
-            means=means,
-            kernel=self.kernel_str,
-            scale_wrapper=kernel_scale_wrapper,
-            alpha=eps,
-        )
+        self.regressor = None
+        self.regressor_type = regressor_type
+        if regressor_type == "base":
+            self.regressor = DragonGPR(
+                self.X0,
+                Y_init,
+                likelihood=self.likelihood,
+                means=means,
+                kernel=self.kernel_str,
+                scale_wrapper=kernel_scale_wrapper,
+                alpha=eps,
+            )
+        if regressor_type == "banditos":
+            self.regressor = BanditosGPR(
+                self.X0,
+                Y_init,
+                likelihood=self.likelihood,
+                means=means,
+                kernel=self.kernel_str,
+                scale_wrapper=kernel_scale_wrapper,
+                alpha=eps,
+            )
 
         # init storage
         self.Y0 = Y_init
@@ -61,6 +76,7 @@ class BaseDragonBayesOpt:
 
         self.prev_samples = {"best": {"X": self.X0, "Y": self.Y0}}
         self.stop = False
+        self.max_optim_iters = max_optim_iters
 
     def _param_length_check(self, X_init):
         try:
@@ -76,7 +92,7 @@ class BaseDragonBayesOpt:
                     f"Input shape for Hyperparams: {len(self.params)} does not match X_init shape: {1}"
                 )
 
-    def __init_pbounds(self, *tensor_args):
+    def __init_pbounds(self, regressor_type: str, *tensor_args):
         constraint_fn_app = {}
         values = []
         names = []
@@ -128,9 +144,22 @@ class BaseDragonBayesOpt:
 
         bound_samples = self._sample_from_bounds()
         for x0 in bound_samples:
-            res = minimize(
-                fun=min_obj, x0=x0, bounds=self.bounds["vector"].T, method="L-BFGS-B"
-            )
+            # handle num_iters
+            if self.max_optim_iters is None:
+                res = minimize(
+                    fun=min_obj,
+                    x0=x0,
+                    bounds=self.bounds["vector"].T,
+                    method=self.opt_m,
+                )
+            else:
+                res = minimize(
+                    fun=min_obj,
+                    x0=x0,
+                    bounds=self.bounds["vector"].T,
+                    method=self.opt_m,
+                    maxiters=self.max_optim_iters,
+                )
             if res.fun < restart_best["value"]:
                 restart_best["value"] = res.fun
                 restart_best["x"] = res.x
@@ -165,9 +194,11 @@ class BaseDragonBayesOpt:
         assert input_tensor.shape[0] == len(self.params)
         for i in range(len(self.params)):
             value = input_tensor[i].item()
+            if self.regressor_type == "banditos":
+                value = np.exp(value)
             self.params[i].assign(value)
 
-    def __call__(
+    def __call__(  # TODO: assert no gradients being calculated here. Use as little of the gpu as possible, maybe even convert to cpu
         self,
         model,
         batch_X: T.tensor,
@@ -198,8 +229,8 @@ class BaseDragonBayesOpt:
         # push new samples to internal storage (self._X_sample, self._Y_sample)
         x_tensor = T.from_numpy(restart_best["x"])
         y_tensor = self.obj_fnc(model, batch_X, batch_Y, **kwargs)
-        self.add_to_x(x_tensor)
-        self.add_to_y(y_tensor)
+        self.add_to_x(x_tensor.exp())
+        self.add_to_y(y_tensor.exp())
 
         # attribute updates
         self.__setattr__("current_iter", self.__getattribute__("current_iter") + 1)

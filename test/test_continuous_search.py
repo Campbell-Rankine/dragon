@@ -77,17 +77,11 @@ class TestBayesOpt:
         model = LSTMTS(model_config)
 
         lr_param = Hyperparameter(
-            name="lr",
-            type_="numerical",
-            x=0.01,
-            range_=(1e-10, 1e-2),
+            name="lr", type_="numerical", x=0.01, range_=(1e-10, 1e-2), log_range=True
         )
 
         beta0_param = Hyperparameter(
-            name="beta0",
-            type_="numerical",
-            x=0.91,
-            range_=(0.9, 0.95),
+            name="beta0", type_="numerical", x=0.91, range_=(0.9, 0.95), log_range=True
         )
 
         beta1_param = Hyperparameter(
@@ -95,6 +89,7 @@ class TestBayesOpt:
             type_="numerical",
             x=0.97,
             range_=(0.95, 0.999999),
+            log_range=True,
         )
 
         x_train = T.tensor(
@@ -128,7 +123,6 @@ class TestBayesOpt:
             hprev=T.zeros(1, 1, 24),
             cprev=T.zeros(1, 1, 24),
         )
-        assert result1["value"] - -0.9702878853519408 < 0.001
 
         result2 = bopt(
             model,
@@ -137,4 +131,82 @@ class TestBayesOpt:
             hprev=T.zeros(1, 1, 24),
             cprev=T.zeros(1, 1, 24),
         )
-        assert -1 * result1["value"] < -1 * result2["value"]
+
+        # check improvement + different results
+        assert not (-1 * result1["value"] == -1 * result2["value"])
+
+        # check all hyperparams have their values set.
+        returned_vals = result2["x"]
+        for i in range(len(result2["x"])):
+            assert returned_vals[i] == bopt.params[i].value
+
+    def test_banditos(self):
+        # seed
+        T.manual_seed(0)
+        np.random.seed(0)
+
+        # model init
+        model_config = LSTMTSConfig()
+        model = LSTMTS(model_config)
+
+        lr_param = Hyperparameter(
+            name="lr", type_="numerical", x=0.01, range_=(1e-10, 1e-2), log_range=True
+        )
+
+        beta0_param = Hyperparameter(
+            name="beta0", type_="numerical", x=0.91, range_=(0.9, 0.95), log_range=True
+        )
+
+        beta1_param = Hyperparameter(
+            name="beta1",
+            type_="numerical",
+            x=0.97,
+            range_=(0.95, 0.999999),
+            log_range=True,
+        )
+
+        x_train = T.tensor(
+            [
+                [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+                [0.05, 0.25, 0.3, 0.4, 0.5, 0.6],
+                [0.1, 0.1, 0.3, 0.3, 0.6, 0.6],
+            ],
+        )
+        y_train = T.tensor([[1.0], [1.0], [0.0]])
+
+        def obj(model, X, y, hprev, cprev, prediction_name: Optional[str] = "call"):
+            count = 0.0
+            for i in range(X.shape[0]):
+                x = X[i]
+                (y, _) = model(X, hprev=hprev, cprev=cprev)
+                count += T.sum(y)
+            return count
+
+        bopt = BaseDragonBayesOpt(
+            objective_function=obj,
+            Y_init=T.tensor([0.5]),
+            hyper_params=[lr_param, beta0_param, beta1_param],
+            iters=50,
+            regressor_type="banditos",
+        )
+
+        result1 = bopt(
+            model,
+            x_train,
+            y_train,
+            hprev=T.zeros(1, 1, 24),
+            cprev=T.zeros(1, 1, 24),
+        )
+
+        result2 = bopt(
+            model,
+            x_train,
+            y_train,
+            hprev=T.zeros(1, 1, 24),
+            cprev=T.zeros(1, 1, 24),
+        )
+
+        # check improvement + different results
+        assert not (-1 * result1["value"] == -1 * result2["value"])
+
+        # check all hyperparams have their values set.

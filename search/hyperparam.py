@@ -3,6 +3,7 @@ PyTorch define hyperparameter types
 """
 
 import torch as T
+import numpy as np
 from typing import Optional, List, Tuple, Any, Dict
 
 
@@ -20,13 +21,10 @@ class Constraint:
 
 
 class RangeConstraint:
-    def __init__(
-        self,
-        max_: float,
-        min_: float,
-    ):
+    def __init__(self, max_: float, min_: float, log_range: Optional[bool] = False):
         self.max = max_
         self.min = min_
+        self.log_range = log_range
 
     def __call__(self, x: Any):
         if x > self.max:
@@ -55,16 +53,20 @@ class Hyperparameter:
             bool
         ] = False,  # TODO: Implement Caching of future values
         cache_window: Optional[int] = 30,
+        log_range: Optional[bool] = False,
     ):
         # initial attribute setup
         self.name = name
         self.type = type_
         self.constraints = constraints
-        self.range = RangeConstraint(max_=range_[1], min_=range_[0])
+        self.range = RangeConstraint(
+            max_=range_[1], min_=range_[0], log_range=log_range
+        )
         self.__device = device
         self.sampler = sampling_fn
         self.future_cache = cache_future_values
         self.sample_kwargs = sample_kwargs
+        self.log_range = log_range
 
         self.__storage = {"previous": [], "cache": []}
 
@@ -74,8 +76,11 @@ class Hyperparameter:
 
         # value init check
         try:
+            x_ = 0.0
+            if log_range:
+                x_ = np.log(x)
             assert self.range(x)
-            self.value = T.tensor(x, device=self.__device, **tensor_kwargs)
+            self.value = T.tensor(x_, device=self.__device, **tensor_kwargs)
         except AssertionError:
             raise ValueError(
                 f"Initial value for {self.name}={x} does not satisfy range constraint -> {self.range}"
@@ -112,7 +117,10 @@ class Hyperparameter:
         return self.item
 
     def __repr__(self):
-        return f"{self.name}={self.value}"
+        val = self.value
+        if self.log_range:
+            val = np.exp(x)
+        return f"{self.name}={np.exp(self.value)}"
 
     def apply_constraints(self, **kwargs):
         val = False
