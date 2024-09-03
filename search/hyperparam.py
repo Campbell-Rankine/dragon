@@ -119,8 +119,8 @@ class Hyperparameter:
     def __repr__(self):
         val = self.value
         if self.log_range:
-            val = np.exp(x)
-        return f"{self.name}={np.exp(self.value)}"
+            val = np.exp(self.value)
+        return f"{self.name}={val}"
 
     def apply_constraints(self, **kwargs):
         val = False

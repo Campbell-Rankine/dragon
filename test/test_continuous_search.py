@@ -77,19 +77,15 @@ class TestBayesOpt:
         model = LSTMTS(model_config)
 
         lr_param = Hyperparameter(
-            name="lr", type_="numerical", x=0.01, range_=(1e-10, 1e-2), log_range=True
+            name="lr", type_="numerical", x=0.01, range_=(1e-10, 1e-2)
         )
 
         beta0_param = Hyperparameter(
-            name="beta0", type_="numerical", x=0.91, range_=(0.9, 0.95), log_range=True
+            name="beta0", type_="numerical", x=0.91, range_=(0.9, 0.95)
         )
 
         beta1_param = Hyperparameter(
-            name="beta1",
-            type_="numerical",
-            x=0.97,
-            range_=(0.95, 0.999999),
-            log_range=True,
+            name="beta1", type_="numerical", x=0.97, range_=(0.95, 0.999999)
         )
 
         x_train = T.tensor(

@@ -166,14 +166,19 @@ class BaseDragonBayesOpt:
         return restart_best
 
     def _push_iteration_storage(self, restart_best: dict):
+        best_val = -1 * restart_best["value"]
+        if self.regressor_type == "banditos":
+            best_val = np.exp(best_val)
         if -1 * restart_best["value"] >= self.prev_samples["best"]["Y"]:
+            # push to best
             self.prev_samples["best"] = {
                 "X": restart_best["x"],
-                "Y": -1 * restart_best["value"],
+                "Y": best_val,
             }
+        # store history
         self.prev_samples[f"{self.current_iter}"] = {
             "X": restart_best["x"],
-            "Y": -1 * restart_best["value"],
+            "Y": best_val,
         }
 
     def add_to_x(self, x_tensor):
@@ -221,7 +226,10 @@ class BaseDragonBayesOpt:
 
         # iteration sample
         restart_best = self._sample_next_points(xi=xi)
-        print(f"Found new best sample: {restart_best['x']} = {restart_best['value']}")
+        best = -1 * restart_best["value"]
+        if self.regressor_type == "banditos":
+            best = np.exp(best)
+        print(f"Found new best sample: {restart_best['x']} = {best}")
 
         # storage handling
         self._push_iteration_storage(restart_best=restart_best)
