@@ -3,7 +3,7 @@ import numpy as np
 import gpytorch
 from gpytorch.models import ExactGP
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
-from botorch.posteriors import GPyTorchPosterior
+from botorch.posteriors import GPyTorchPosterior, HigherOrderGPPosterior
 from gpytorch.means import ZeroMean
 from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.distributions import MultivariateNormal
@@ -219,5 +219,9 @@ class BanditosGPR(ExactGP):
             raise ValueError(
                 "Incorrect distribution type to sample, distribution must take mu, sigma as args"
             )
-        value = val.get_base_samples()
-        return self.warp_output(value)
+        base_samples = val.get_base_samples()
+        posterior = GPyTorchPosterior(val).rsample_from_base_samples(
+            sample_shape=base_samples.size(), base_samples=base_samples
+        )
+        # value = val.get_base_samples()
+        return self.warp_output(posterior)
