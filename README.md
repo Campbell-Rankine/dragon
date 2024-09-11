@@ -16,4 +16,5 @@ ML Utils library for publishing to PyPI
     - MADDPG Replay buffer
     - OU Action noise for Policy Gradient based Agents
     - Computer Vision CNN extension pytorch nn.Module's (from RGB, to RGB, Equalized2DConv, etc.)
+    - CUDA optimized Sobel Filter (from dragon import sobel_filter)
   - utils : Utility functions (normally for internal use)

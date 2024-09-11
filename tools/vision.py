@@ -7,8 +7,63 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
+from numba import cuda
+import numpy as np
+import math
 
 
+# Feature Extraction
+@cuda.jit
+def sobel_filter(input_image, output_image):
+    # Apply sobel filter inplace on the output image.
+    x, y = cuda.grid(2)
+
+    if x < input_image.shape[0] - 2 and y < input_image.shape[1] - 2:
+        # get Gx
+        Gx = (
+            input_image[x, y]
+            - input_image[x + 2, y]
+            + 2 * input_image[x, y + 1]
+            - 2 * input_image[x + 2, y + 1]
+            + input_image[x, y + 2]
+            - input_image[x + 2, y + 2]
+        )
+        # get Gy
+        Gy = (
+            input_image[x, y]
+            - input_image[x, y + 2]
+            + 2 * input_image[x + 1, y]
+            - 2 * input_image[x + 1, y + 2]
+            + input_image[x + 2, y]
+            - input_image[x + 2, y + 2]
+        )
+
+        # in place op
+        output_image[x + 1, y + 1] = math.sqrt(Gx**2 + Gy**2)
+
+
+def _cuda_sobel(np_image: np.ndarray):
+    # alloc
+    cuda_im = cuda.to_device(np_image)
+    output_image = np.zeros_like(np_image)
+    threads_per_block = (16, 16)
+
+    # calculate dims
+    blockspergrid_x = (
+        np_image.shape[0] + threads_per_block[0] - 1
+    ) // threads_per_block[0]
+    blockspergrid_y = (
+        np_image.shape[1] + threads_per_block[1] - 1
+    ) // threads_per_block[1]
+    blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+    # apply sobel filter
+    sobel_filter[blockspergrid, threads_per_block](cuda_im, output_image)
+    output_image = cuda_im.copy_to_host()
+    return output_image
+
+
+# Neural Network Modules
 class EqualizedLR_Conv2d(nn.Module):
     """
     Equalized LR Convolutional 2d cell. Used to prevent exploding gradients
