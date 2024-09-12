@@ -42,11 +42,12 @@ def sobel_filter(input_image, output_image):
         output_image[x + 1, y + 1] = math.sqrt(Gx**2 + Gy**2)
 
 
-def _cuda_sobel(np_image: np.ndarray):
+def cuda_sobel(np_image: np.ndarray, kernel_size: Optional[int]=16, variance_scaler: Optional[int]=4):
+    np_image = cv.GaussianBlur(np_image, (kernel_size,kernel_size), np.std(np_image)/variance_scaler)
     # alloc
     cuda_im = cuda.to_device(np_image)
-    output_image = np.zeros_like(np_image)
-    threads_per_block = (16, 16)
+    output_image_ = np.zeros_like(np_image)
+    threads_per_block = (kernel_size, kernel_size)
 
     # calculate dims
     blockspergrid_x = (
@@ -58,9 +59,8 @@ def _cuda_sobel(np_image: np.ndarray):
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # apply sobel filter
-    sobel_filter[blockspergrid, threads_per_block](cuda_im, output_image)
-    output_image = cuda_im.copy_to_host()
-    return output_image
+    sobel_filter[blockspergrid, threads_per_block](cuda_im, output_image_)
+    return output_image_
 
 
 # Neural Network Modules

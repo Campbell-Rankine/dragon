@@ -6,9 +6,16 @@ accelerate
 ujson
 tensorboard
 torch==2.2.2
+torchvision
+numpy
+pandas
 yahoo_fin
 tqdm
 matplotlib
 requests_html
 gpytorch
 botorch
+numba
+opencv-python
+scipy
+scikit-learn
