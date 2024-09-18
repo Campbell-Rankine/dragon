@@ -7,7 +7,7 @@ from typing import Optional, List, Tuple, Any, Dict
 
 
 # internal imports
-from search.acquisition.functions import probability_improvement, expected_improvement
+from acquisition.functions import probability_improvement, expected_improvement
 from search.models.bopt_models import DragonGPR, BanditosGPR
 from search.hyperparam import Hyperparameter
 

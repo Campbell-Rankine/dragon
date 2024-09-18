@@ -1,4 +1,4 @@
-from src.pytorch_dragon_campbellrankine import sobel_filter
+from src.pytorch_dragon import sobel_filter
 import cv2 as cv
 import numpy as np
 from timeit import default_timer as timer

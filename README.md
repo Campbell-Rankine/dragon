@@ -2,7 +2,7 @@
 ML Utils library for publishing to PyPI
 
 ### Modules
-
+  - acquisition : Acquisition functions for bayesian optimization.
   - search : Hyperparameter search classes and utilities. (Bayes Opt)
     - Bayes opt continuous search.
     - Gaussian Process Regressor
