@@ -16,7 +16,7 @@ import cv2 as cv
 
 # Feature Extraction
 @cuda.jit  # Tell numba jit compiler it needs to map cpu functions to cuda functions
-def sobel_filter(input_image, output_image):
+def _sobel_filter(input_image, output_image):
     # Apply sobel filter inplace on the output image.
     x, y = cuda.grid(2)
 
@@ -69,7 +69,7 @@ def cuda_sobel(
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # apply sobel filter
-    sobel_filter[blockspergrid, threads_per_block](cuda_im, output_image_)
+    _sobel_filter[blockspergrid, threads_per_block](cuda_im, output_image_)
     return output_image_
 
 

@@ -13,11 +13,11 @@ import numpy as np
 from numba import cuda
 
 
-def sobel_filter(img: np.ndarray) -> np.ndarray:
+def sobel_filter(img: np.ndarray, **kwargs) -> np.ndarray:
     """
     CUDA Optimized Sobel Filtering algorithm. Pass Binary image
     """
     assert len(img.shape) == 2  # assert two dimensional
     from .tools.vision import cuda_sobel
 
-    return cuda_sobel(img)
+    return cuda_sobel(img, **kwargs)
