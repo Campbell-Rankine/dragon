@@ -1,6 +1,14 @@
-# pytorch-dragon
+# **pytorch-dragon**
 ---
 A deep learning pytorch utilities library for a variety of tasks. See [Features](#features) for the list of modules.
+
+  - PyPI Link : [pytorch-dragon](https://pypi.org/project/pytorch-dragon/)
+  - Author : Campbell Rankine
+  - Version : v0.2.4
+  - Dependencies:
+    - Python $\geq$ 3.10
+    - setuptools $\geq$ 61.0
+    - torch == 2.2.2
 
 ## Table of Contents : 🔗
 
