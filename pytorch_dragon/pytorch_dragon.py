@@ -18,6 +18,6 @@ def sobel_filter(img: np.ndarray) -> np.ndarray:
     CUDA Optimized Sobel Filtering algorithm. Pass Binary image
     """
     assert len(img.shape) == 2  # assert two dimensional
-    from .tools.vision import _cuda_sobel
+    from .tools.vision import cuda_sobel
 
-    return _cuda_sobel(img)
+    return cuda_sobel(img)
