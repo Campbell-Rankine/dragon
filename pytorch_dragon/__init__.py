@@ -12,10 +12,11 @@ __name__ = "pytorch_dragon"
 __author__ = "Campbell Rankine"
 
 ### Function imports ###
-from .utils.metrics import gradient_norm
-from .utils.system import get_resource_usage
-from .utils.torch_utils import tensor_app, tensor_del
-from .acquisition.functions import expected_improvement, probability_improvement
+from . import utils
+from utils.metrics import gradient_norm
+from utils.system import get_resource_usage
+from utils.torch_utils import tensor_app, tensor_del
+from acquisition.functions import expected_improvement, probability_improvement
 
 ### Import Modules ###
 from . import backprop
