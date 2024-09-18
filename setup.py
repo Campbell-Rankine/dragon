@@ -2,13 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name="pytorch-dragon",
-    version="0.1.1",  # must match the github version
+    version="0.1.2",  # must match the github version
     author="Campbell Rankine",
     author_email="campbellrankine@gmail.com",
     description="A pytorch integrated Machine Learning / Deep learning utilities library",
-    download_url="https://github.com/Campbell-Rankine/dragon/archive/refs/tags/v0.1.0.tar.gz",
+    download_url="https://github.com/Campbell-Rankine/dragon/archive/refs/tags/v0.1.1.tar.gz",
     packages=find_packages(),
     install_requires=[  # I get to this in a second
+        "setuptools>=61.0",
         "validators",
         "beautifulsoup4",
         "opencv-python",
