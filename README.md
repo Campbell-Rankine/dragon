@@ -6,9 +6,8 @@
 </div>
 
 
-<div align="center">
+
 A deep learning pytorch utilities library for a variety of tasks. See [Features](#features) for the list of modules. The package was named for my lizard Malik, be nice.
-</div>
 
 
   - PyPI Link : [pytorch-dragon](https://pypi.org/project/pytorch-dragon/)
