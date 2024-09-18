@@ -2,12 +2,14 @@
 ---
 
 <div align="center">
+  <img src="./images/malik.jpg" width=400/>
+</div>
+
+
+<div align="center">
 A deep learning pytorch utilities library for a variety of tasks. See [Features](#features) for the list of modules. The package was named for my lizard Malik, be nice.
 </div>
 
-<div align="center">
-  <img src="./images/malik.jpg" width=400/>
-</div>
 
   - PyPI Link : [pytorch-dragon](https://pypi.org/project/pytorch-dragon/)
   - Author : Campbell Rankine
