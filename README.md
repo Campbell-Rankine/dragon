@@ -1,7 +1,38 @@
-# dragon
-ML Utils library for publishing to PyPI
+# pytorch-dragon
+---
+A deep learning pytorch utilities library for a variety of tasks. See [Features](#features) for the list of modules.
 
-### Modules
+## Table of Contents : 🔗
+
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Features](#features)
+
+### Installation : ✔️
+  pytorch-dragon can be installed with pip/pip3 using the following:
+
+  ```sh
+    pip install pytorch-dragon
+    pip3 install pytorch-dragon
+
+    pip install -U pytorch-dragon
+    pip3 install -U pytorch-dragon
+  ```
+
+### Usage : 🎆
+  To import the different extension libraries you can use the following python examples to import the modules:
+
+  ```sh
+    import pytorch_dragon as dragon
+    
+    from pytorch_dragon import utils
+    from pytorch_dragon import acquisition.functions
+
+    from pytorch_dragon.pytorch_dragon import sobel_filter
+  ```
+
+### Features : 📜
+
   - acquisition : Acquisition functions for bayesian optimization.
   - search : Hyperparameter search classes and utilities. (Bayes Opt)
     - Bayes opt continuous search.
