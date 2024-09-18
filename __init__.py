@@ -9,8 +9,8 @@ Full List:
 """
 
 if __name__ == "__main__":
-    from pytorch_dragon.dragon import sobel_filter
-    from pytorch_dragon.dragon import utils
-    from pytorch_dragon.dragon import backprop
-    from pytorch_dragon.dragon import search
-    from pytorch_dragon.dragon import tools
+    from pytorch_dragon.pytorch_dragon import sobel_filter
+    from pytorch_dragon.pytorch_dragon import utils
+    from pytorch_dragon.pytorch_dragon import backprop
+    from pytorch_dragon.pytorch_dragon import search
+    from pytorch_dragon.pytorch_dragon import tools
