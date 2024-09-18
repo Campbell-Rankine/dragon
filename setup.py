@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pytorch-dragon",
-    version="0.1.0",  # must match the github version
+    version="0.1.1",  # must match the github version
     author="Campbell Rankine",
     author_email="campbellrankine@gmail.com",
     description="A pytorch integrated Machine Learning / Deep learning utilities library",
@@ -18,8 +18,6 @@ setup(
         "psutil",
         "typing",
         "datetime",
-        "json",
-        "math",
         "gpytorch",
         "botorch",
         "scikit-learn",
