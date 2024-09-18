@@ -10,10 +10,12 @@ from torch.nn.parameter import Parameter
 from numba import cuda
 import numpy as np
 import math
+from typing import Optional
+import cv2 as cv
 
 
 # Feature Extraction
-@cuda.jit
+@cuda.jit  # Tell numba jit compiler it needs to map cpu functions to cuda functions
 def sobel_filter(input_image, output_image):
     # Apply sobel filter inplace on the output image.
     x, y = cuda.grid(2)
@@ -42,8 +44,16 @@ def sobel_filter(input_image, output_image):
         output_image[x + 1, y + 1] = math.sqrt(Gx**2 + Gy**2)
 
 
-def cuda_sobel(np_image: np.ndarray, kernel_size: Optional[int]=16, variance_scaler: Optional[int]=4):
-    np_image = cv.GaussianBlur(np_image, (kernel_size,kernel_size), np.std(np_image)/variance_scaler)
+def cuda_sobel(
+    np_image: np.ndarray,
+    kernel_size: Optional[int] = 16,
+    variance_scaler: Optional[int] = 4,
+):
+    np_image = cv.GaussianBlur(
+        np_image,
+        (kernel_size, kernel_size),
+        np.std(np_image) / variance_scaler,  # Gaussian filter for smoother gradients
+    )
     # alloc
     cuda_im = cuda.to_device(np_image)
     output_image_ = np.zeros_like(np_image)

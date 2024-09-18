@@ -1,4 +1,4 @@
-from dragon import sobel_filter
+from dragon.dragon import sobel_filter
 import cv2 as cv
 import numpy as np
 from timeit import default_timer as timer

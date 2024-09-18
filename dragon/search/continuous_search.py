@@ -229,7 +229,6 @@ class BaseDragonBayesOpt:
         best = -1 * restart_best["value"]
         if self.regressor_type == "banditos":
             best = np.exp(best)
-        print(f"Found new best sample: {restart_best['x']} = {best}")
 
         # storage handling
         self._push_iteration_storage(restart_best=restart_best)

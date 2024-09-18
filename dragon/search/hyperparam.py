@@ -92,10 +92,6 @@ class Hyperparameter:
 
         assert self._type_check()
 
-        print(
-            f"Finished Initializing param: {self.name}={self.value}, Range - {self.range}"
-        )
-
     def assign(self, val: Any, **kwargs):
         self.__storage["previous"].append(
             self.__getattribute__("value")
@@ -130,7 +126,6 @@ class Hyperparameter:
             try:
                 val = x(self.value, **kwargs)
             except AssertionError:
-                print("error")
                 return False
         return val
 
