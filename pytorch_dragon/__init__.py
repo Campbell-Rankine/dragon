@@ -12,7 +12,6 @@ __name__ = "pytorch_dragon"
 __author__ = "Campbell Rankine"
 
 ### Function imports ###
-from . import sobel_filter
 from .utils.metrics import gradient_norm
 from .utils.system import get_resource_usage
 from .utils.torch_utils import tensor_app, tensor_del
