@@ -1,7 +1,6 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, find_namespace_packages
 
 __author__ = "Campbell Rankine"
-__name__ = "pytorch_dragon"
 
 setup(
     name="pytorch-dragon",
@@ -10,7 +9,7 @@ setup(
     author_email="campbellrankine@gmail.com",
     description="A pytorch integrated Machine Learning / Deep learning utilities library",
     download_url="https://github.com/Campbell-Rankine/dragon/archive/refs/tags/v0.1.5.tar.gz",
-    packages=find_packages(),
+    packages=find_packages(where="."),
     install_requires=[  # I get to this in a second
         "setuptools>=61.0",
         "validators",
